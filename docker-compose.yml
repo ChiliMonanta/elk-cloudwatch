@@ -1,0 +1,56 @@
+version: "3"
+services:
+    elasticsearch:
+        image: elasticsearch:7.7.0
+        container_name: elasticsearch
+        hostname: elasticsearch
+        environment:
+            - "discovery.type=single-node"
+            - "bootstrap.memory_lock=true"
+            - "ES_JAVA_OPTS=-Xms1G -Xmx1G"
+            - "xpack.security.enabled=false"
+            - "http.cors.enabled=true"
+            - "http.cors.allow-origin=*"
+        ports:
+            - 9200:9200
+            - 9300:9300
+        networks:
+            - elknet
+    kibana:
+        image: kibana:7.7.0
+        container_name: kibana
+        hostname: kibana
+        ports:
+            - 5601:5601
+        links:
+            - elasticsearch:elasticsearch
+        depends_on:
+          - elasticsearch
+        networks:
+          - elknet
+    logstash:
+        build:
+            context: .
+            dockerfile: Dockerfile.logstash
+        container_name: logstash
+        hostname: logstash
+        ports:
+            - 9600:9600
+            - 8089:8089
+        volumes:
+          - ./logstash:/usr/share/logstash/pipeline/
+        links:
+            - elasticsearch:elasticsearch
+        environment:
+            AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+            AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+            AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN}"
+            AWS_LOG_GROUP: "${AWS_LOG_GROUP}" # Example "/aws/lambda/my-lambda"
+        depends_on:
+          - elasticsearch
+        networks:
+          - elknet
+
+networks:
+    elknet:
+        driver: bridge
